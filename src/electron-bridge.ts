@@ -12,6 +12,16 @@ export interface ElectronBridge {
   removeListener(id: string): void;
 }
 
+const SCAN_EVENT = 'onScanEvent';
+
+/**
+ * The Electron main process sends the tags it read in one message per 250 ms
+ * window instead of one per frame — a single tag is read about 44 times a
+ * second. The contract does not change: the array is unrolled here, so a
+ * listener still gets one tag per call.
+ */
+const SCAN_BATCH_EVENT = 'onScanEventBatch';
+
 /**
  * On native platforms Capacitor wraps the `addListener` result into a
  * `PluginListenerHandle` itself (`addListenerNative`), but only when
@@ -41,11 +51,23 @@ export function withListenerHandles(bridge: ElectronBridge): RFIDPlugin {
       eventName: string,
       callback: (...args: any[]) => void,
     ): Promise<PluginListenerHandle> => {
-      const id = bridge.addListener(eventName, callback);
+      const ids = [bridge.addListener(eventName, callback)];
+
+      if (eventName === SCAN_EVENT) {
+        // A desktop app older than the batch sends one message per tag on
+        // `onScanEvent`, a newer one sends only batches. Both are listened
+        // for, because the bundle in the browser and the installed desktop
+        // app are updated separately; only one of them ever fires.
+        ids.push(
+          bridge.addListener(SCAN_BATCH_EVENT, (batch: unknown[]) => {
+            for (const event of batch) callback(event);
+          }),
+        );
+      }
 
       return {
         remove: async () => {
-          bridge.removeListener(id);
+          for (const id of ids) bridge.removeListener(id);
         },
       };
     },

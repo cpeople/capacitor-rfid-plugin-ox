@@ -22,6 +22,8 @@ function contextBridgeObject(methods: Record<string, unknown>): ElectronBridge {
   return exposed as ElectronBridge;
 }
 
+const tag = (epc: string) => ({ epc, tid: '', rssi: '-45.4' });
+
 function fakeBridge() {
   const listeners = new Map<string, { eventName: string; callback: (...args: any[]) => void }>();
   let nextId = 0;
@@ -42,7 +44,14 @@ function fakeBridge() {
     },
   });
 
-  return { bridge, listeners, startScan, setOutputPower };
+  /** A message from the Electron main process. */
+  const emit = (eventName: string, ...args: any[]) => {
+    for (const listener of listeners.values()) {
+      if (listener.eventName === eventName) listener.callback(...args);
+    }
+  };
+
+  return { bridge, listeners, emit, startScan, setOutputPower };
 }
 
 describe('withListenerHandles', () => {
@@ -62,12 +71,59 @@ describe('withListenerHandles', () => {
     const plugin = withListenerHandles(bridge);
     const callback = vi.fn();
 
-    const handle = await plugin.addListener('onScanEvent' as any, callback);
+    const handle = await plugin.addListener('onConnectionState', callback);
 
     expect(listeners.size).toBe(1);
     expect(typeof handle.remove).toBe('function');
 
     await handle.remove();
+    expect(listeners.size).toBe(0);
+  });
+
+  it("bitta batch xabari bittalab teg bo'lib chiqadi", async () => {
+    const { bridge, emit } = fakeBridge();
+    const scans: unknown[] = [];
+
+    await withListenerHandles(bridge).addListener('onScanEvent' as any, data =>
+      scans.push(data),
+    );
+
+    // One IPC message from the Electron main process: the frames of one
+    // 250 ms window.
+    emit('onScanEventBatch', [tag('A'), tag('B'), tag('C')]);
+
+    expect(scans).toEqual([tag('A'), tag('B'), tag('C')]);
+  });
+
+  it('bittalab kelgan teg ham yetib boradi', async () => {
+    // The browser bundle and the installed desktop app are updated
+    // separately, so a desktop older than the batch still sends one message
+    // per tag.
+    const { bridge, emit } = fakeBridge();
+    const scans: unknown[] = [];
+
+    await withListenerHandles(bridge).addListener('onScanEvent' as any, data =>
+      scans.push(data),
+    );
+
+    emit('onScanEvent', tag('A'));
+
+    expect(scans).toEqual([tag('A')]);
+  });
+
+  it("olib tashlangan tinglovchiga batch ham kelmaydi", async () => {
+    const { bridge, emit, listeners } = fakeBridge();
+    const scans: unknown[] = [];
+
+    const handle = await withListenerHandles(bridge).addListener(
+      'onScanEvent' as any,
+      data => scans.push(data),
+    );
+    await handle.remove();
+
+    emit('onScanEventBatch', [tag('A')]);
+
+    expect(scans).toEqual([]);
     expect(listeners.size).toBe(0);
   });
 
