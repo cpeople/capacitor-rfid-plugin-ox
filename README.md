@@ -13,6 +13,7 @@ npx cap sync
 
 <docgen-index>
 
+* [`getCapabilities()`](#getcapabilities)
 * [`isConnected()`](#isconnected)
 * [`startScan()`](#startscan)
 * [`stopScan()`](#stopscan)
@@ -30,11 +31,28 @@ npx cap sync
 * [`writeEpcString(...)`](#writeepcstring)
 * [`startSearch(...)`](#startsearch)
 * [`stopSearch()`](#stopsearch)
+* [Interfaces](#interfaces)
 
 </docgen-index>
 
 <docgen-api>
 <!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
+
+### getCapabilities()
+
+```typescript
+getCapabilities() => Promise<ReaderCapabilities>
+```
+
+Capabilities of the connected Reader.
+
+Implementations that predate this method reject. That is a signal, not a
+failure: the caller treats a rejection as a handheld Mobile Reader.
+
+**Returns:** <code>Promise&lt;<a href="#readercapabilities">ReaderCapabilities</a>&gt;</code>
+
+--------------------
+
 
 ### isConnected()
 
@@ -235,5 +253,22 @@ stopSearch() => Promise<void>
 ```
 
 --------------------
+
+
+### Interfaces
+
+
+#### ReaderCapabilities
+
+What the connected Reader can do. Mode gating comes from here, not from the
+reader type — a desktop reader that can write must not be gated like one
+that cannot.
+
+| Prop             | Type                                                        | Description                                                           |
+| ---------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| **`canWrite`**   | <code>boolean</code>                                        | Reader can write an EPC to a tag (Generate & Set mode depends on it). |
+| **`hasRssi`**    | <code>boolean</code>                                        | Reader reports RSSI (Find mode depends on it).                        |
+| **`isHandheld`** | <code>boolean</code>                                        | Reader is a handheld terminal rather than a desk device.              |
+| **`power`**      | <code>{ min: number; max: number; default: number; }</code> | Output power range in dBm. The power slider renders this range.       |
 
 </docgen-api>
