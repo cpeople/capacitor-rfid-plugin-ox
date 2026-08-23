@@ -4,6 +4,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import type {
   ReaderCapabilities,
   ReaderConnectionState,
+  ReaderPort,
   RFIDPlugin,
 } from './definitions';
 
@@ -37,6 +38,18 @@ export class RFIDWeb extends WebPlugin implements RFIDPlugin {
    * useful sentence — open the desktop app or the handheld.
    */
   async getConnectionState(): Promise<ReaderConnectionState> {
+    throw this.unimplemented(NO_READER_ON_WEB);
+  }
+
+  /**
+   * Not an empty list: "no readers plugged in" would send the operator to look
+   * for a cable, and the browser has no serial ports to look at.
+   */
+  async listReaderPorts(): Promise<{ ports: ReaderPort[] }> {
+    throw this.unimplemented(NO_READER_ON_WEB);
+  }
+
+  async selectReaderPort(): Promise<void> {
     throw this.unimplemented(NO_READER_ON_WEB);
   }
 

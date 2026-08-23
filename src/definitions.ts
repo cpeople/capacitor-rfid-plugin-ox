@@ -52,13 +52,34 @@ export type ReaderConnectionReason =
   /** The port was open and then went away. */
   | 'unplugged'
   /** The port opened but the reader stayed silent. */
-  | 'no-answer';
+  | 'no-answer'
+  /**
+   * Several reader ports are plugged in and none was picked. Guessing here
+   * would attach tags read by the wrong device, so nothing is opened until
+   * `selectReaderPort` says which one.
+   */
+  | 'port-not-chosen';
 
 export interface ReaderConnectionState {
   status: ReaderConnectionStatus;
   reason?: ReaderConnectionReason;
   /** Driver text for logs — port list, command code. Not shown to the operator. */
   detail?: string;
+}
+
+/**
+ * One reader the driver could talk to.
+ *
+ * `path` is the identity — `COM3` on Windows, `/dev/cu.usbserial-110`
+ * elsewhere. Two identical CH340 adapters carry no serial number of their own,
+ * so the path is all that separates them.
+ */
+export interface ReaderPort {
+  path: string;
+  /** What the OS calls the device. For the operator to read, not to match on. */
+  label?: string;
+  vendorId?: string;
+  productId?: string;
 }
 
 export interface RFIDPlugin extends Plugin {
@@ -83,6 +104,31 @@ export interface RFIDPlugin extends Plugin {
    * indicator instead of guessing.
    */
   getConnectionState(): Promise<ReaderConnectionState>;
+
+  /**
+   * The readers plugged in right now, newest listing every call — a port that
+   * was there a minute ago may be gone.
+   *
+   * Only readers, not every serial port: what the caller does with this list
+   * is offer it as a choice, and a Bluetooth port is not a choice.
+   *
+   * Implementations that predate this method reject. The caller then keeps
+   * whatever the driver picks on its own.
+   */
+  listReaderPorts(): Promise<{ ports: ReaderPort[] }>;
+
+  /**
+   * Use this reader from now on. Reconnects when another port is open.
+   *
+   * The choice itself is not stored here: the driver is restarted with the
+   * app, and where a choice belongs is the caller's question. The caller
+   * remembers the path and says it again on the next start.
+   *
+   * Rejects when the path is not in the current `listReaderPorts()` — a
+   * remembered reader that was unplugged has to be chosen again, not opened
+   * blindly.
+   */
+  selectReaderPort(options: { path: string }): Promise<void>;
 
   isConnected(): Promise<{ connected: boolean }>;
 

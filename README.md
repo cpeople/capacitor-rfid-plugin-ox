@@ -15,6 +15,8 @@ npx cap sync
 
 * [`getCapabilities()`](#getcapabilities)
 * [`getConnectionState()`](#getconnectionstate)
+* [`listReaderPorts()`](#listreaderports)
+* [`selectReaderPort(...)`](#selectreaderport)
 * [`isConnected()`](#isconnected)
 * [`startScan()`](#startscan)
 * [`stopScan()`](#stopscan)
@@ -76,6 +78,49 @@ Implementations that predate this method reject. The caller then hides the
 indicator instead of guessing.
 
 **Returns:** <code>Promise&lt;<a href="#readerconnectionstate">ReaderConnectionState</a>&gt;</code>
+
+--------------------
+
+
+### listReaderPorts()
+
+```typescript
+listReaderPorts() => Promise<{ ports: ReaderPort[]; }>
+```
+
+The readers plugged in right now, newest listing every call — a port that
+was there a minute ago may be gone.
+
+Only readers, not every serial port: what the caller does with this list
+is offer it as a choice, and a Bluetooth port is not a choice.
+
+Implementations that predate this method reject. The caller then keeps
+whatever the driver picks on its own.
+
+**Returns:** <code>Promise&lt;{ ports: ReaderPort[]; }&gt;</code>
+
+--------------------
+
+
+### selectReaderPort(...)
+
+```typescript
+selectReaderPort(options: { path: string; }) => Promise<void>
+```
+
+Use this reader from now on. Reconnects when another port is open.
+
+The choice itself is not stored here: the driver is restarted with the
+app, and where a choice belongs is the caller's question. The caller
+remembers the path and says it again on the next start.
+
+Rejects when the path is not in the current `listReaderPorts()` — a
+remembered reader that was unplugged has to be chosen again, not opened
+blindly.
+
+| Param         | Type                           |
+| ------------- | ------------------------------ |
+| **`options`** | <code>{ path: string; }</code> |
 
 --------------------
 
@@ -341,6 +386,22 @@ that cannot.
 | **`detail`** | <code>string</code>                                                       | Driver text for logs — port list, command code. Not shown to the operator. |
 
 
+#### ReaderPort
+
+One reader the driver could talk to.
+
+`path` is the identity — `COM3` on Windows, `/dev/cu.usbserial-110`
+elsewhere. Two identical CH340 adapters carry no serial number of their own,
+so the path is all that separates them.
+
+| Prop            | Type                | Description                                                              |
+| --------------- | ------------------- | ------------------------------------------------------------------------ |
+| **`path`**      | <code>string</code> |                                                                          |
+| **`label`**     | <code>string</code> | What the OS calls the device. For the operator to read, not to match on. |
+| **`vendorId`**  | <code>string</code> |                                                                          |
+| **`productId`** | <code>string</code> |                                                                          |
+
+
 #### PluginListenerHandle
 
 | Prop         | Type                                      |
@@ -368,6 +429,6 @@ Why the reader is unusable. The status alone does not say what to do next:
 a busy port needs another program closed, a missing port needs the cable
 checked. The UI picks its message from the reason when there is one.
 
-<code>'port-busy' | 'no-ports' | 'no-reader-port' | 'unplugged' | 'no-answer'</code>
+<code>'port-busy' | 'no-ports' | 'no-reader-port' | 'unplugged' | 'no-answer' | 'port-not-chosen'</code>
 
 </docgen-api>
