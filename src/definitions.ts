@@ -39,31 +39,40 @@ export type ReaderConnectionStatus =
 
 /**
  * Why the reader is unusable. The status alone does not say what to do next:
- * a busy port needs another program closed, a missing port needs the cable
- * checked. The UI picks its message from the reason when there is one.
+ * a busy reader needs another program closed, a missing one needs the
+ * connection checked. The UI picks its message from the reason when there is
+ * one.
+ *
+ * These name what happened to the *reader*, never how it is wired. A driver
+ * for a device with no serial port has to be able to answer in this
+ * vocabulary too, and the operator has to be told the truth either way —
+ * so nothing here says "COM port" or "USB". The device-specific sentence
+ * belongs in `detail`.
  */
 export type ReaderConnectionReason =
-  /** The port exists but another program holds it open. A COM port is exclusive. */
-  | 'port-busy'
-  /** No serial port at all — the USB device is not enumerated. */
-  | 'no-ports'
-  /** Serial ports exist, none of them is a reader. */
-  | 'no-reader-port'
-  /** The port was open and then went away. */
-  | 'unplugged'
-  /** The port opened but the reader stayed silent. */
+  /** Another program holds the reader. Only one may have it at a time. */
+  | 'busy'
+  /** No reader in sight — nothing connected, or nothing that is a reader. */
+  | 'not-detected'
+  /** The reader was there and then went away. */
+  | 'disconnected'
+  /** The reader is reachable but did not answer. */
   | 'no-answer'
   /**
-   * Several reader ports are plugged in and none was picked. Guessing here
-   * would attach tags read by the wrong device, so nothing is opened until
+   * Several readers are connected and none was picked. Guessing here would
+   * attach tags read by the wrong device, so nothing is opened until
    * `selectReaderPort` says which one.
    */
-  | 'port-not-chosen';
+  | 'not-chosen';
 
 export interface ReaderConnectionState {
   status: ReaderConnectionStatus;
   reason?: ReaderConnectionReason;
-  /** Driver text for logs — port list, command code. Not shown to the operator. */
+  /**
+   * Driver text: the port list, the command code, the OS error. This is the
+   * one field allowed to talk about the wiring, because nothing branches on
+   * it — it is shown as-is for support, not translated.
+   */
   detail?: string;
 }
 
@@ -73,6 +82,10 @@ export interface ReaderConnectionState {
  * `path` is the identity — `COM3` on Windows, `/dev/cu.usbserial-110`
  * elsewhere. Two identical CH340 adapters carry no serial number of their own,
  * so the path is all that separates them.
+ *
+ * The caller treats it as **opaque**: it compares, stores and hands it back,
+ * and never reads meaning out of it. A driver for a device that is not a
+ * serial port puts its own identity here.
  */
 export interface ReaderPort {
   path: string;
@@ -96,8 +109,8 @@ export interface RFIDPlugin extends Plugin {
    * from the `onConnectionState` listener — "not responding" is only found out
    * after a timeout, so it cannot be a return value.
    *
-   * A serial port is exclusive, so its state is only knowable while it is
-   * open: an implementation that has no live port may start an attempt here
+   * A reader is an exclusive resource, so its state is only knowable while it
+   * is held: an implementation that is not connected may start an attempt here
    * and answer `connecting`, with the outcome arriving on the listener.
    *
    * Implementations that predate this method reject. The caller then hides the

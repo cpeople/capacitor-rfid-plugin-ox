@@ -70,8 +70,8 @@ Connection state for the first render. The stream of later changes comes
 from the `onConnectionState` listener — "not responding" is only found out
 after a timeout, so it cannot be a return value.
 
-A serial port is exclusive, so its state is only knowable while it is
-open: an implementation that has no live port may start an attempt here
+A reader is an exclusive resource, so its state is only knowable while it
+is held: an implementation that is not connected may start an attempt here
 and answer `connecting`, with the outcome arriving on the listener.
 
 Implementations that predate this method reject. The caller then hides the
@@ -379,11 +379,11 @@ that cannot.
 
 #### ReaderConnectionState
 
-| Prop         | Type                                                                      | Description                                                                |
-| ------------ | ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **`status`** | <code><a href="#readerconnectionstatus">ReaderConnectionStatus</a></code> |                                                                            |
-| **`reason`** | <code><a href="#readerconnectionreason">ReaderConnectionReason</a></code> |                                                                            |
-| **`detail`** | <code>string</code>                                                       | Driver text for logs — port list, command code. Not shown to the operator. |
+| Prop         | Type                                                                      | Description                                                                                                                                                                                         |
+| ------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`status`** | <code><a href="#readerconnectionstatus">ReaderConnectionStatus</a></code> |                                                                                                                                                                                                     |
+| **`reason`** | <code><a href="#readerconnectionreason">ReaderConnectionReason</a></code> |                                                                                                                                                                                                     |
+| **`detail`** | <code>string</code>                                                       | Driver text: the port list, the command code, the OS error. This is the one field allowed to talk about the wiring, because nothing branches on it — it is shown as-is for support, not translated. |
 
 
 #### ReaderPort
@@ -393,6 +393,10 @@ One reader the driver could talk to.
 `path` is the identity — `COM3` on Windows, `/dev/cu.usbserial-110`
 elsewhere. Two identical CH340 adapters carry no serial number of their own,
 so the path is all that separates them.
+
+The caller treats it as **opaque**: it compares, stores and hands it back,
+and never reads meaning out of it. A driver for a device that is not a
+serial port puts its own identity here.
 
 | Prop            | Type                | Description                                                              |
 | --------------- | ------------------- | ------------------------------------------------------------------------ |
@@ -426,9 +430,16 @@ needs a different move in each case. `isConnected()` stays as it is.
 #### ReaderConnectionReason
 
 Why the reader is unusable. The status alone does not say what to do next:
-a busy port needs another program closed, a missing port needs the cable
-checked. The UI picks its message from the reason when there is one.
+a busy reader needs another program closed, a missing one needs the
+connection checked. The UI picks its message from the reason when there is
+one.
 
-<code>'port-busy' | 'no-ports' | 'no-reader-port' | 'unplugged' | 'no-answer' | 'port-not-chosen'</code>
+These name what happened to the *reader*, never how it is wired. A driver
+for a device with no serial port has to be able to answer in this
+vocabulary too, and the operator has to be told the truth either way —
+so nothing here says "COM port" or "USB". The device-specific sentence
+belongs in `detail`.
+
+<code>'busy' | 'not-detected' | 'disconnected' | 'no-answer' | 'not-chosen'</code>
 
 </docgen-api>
