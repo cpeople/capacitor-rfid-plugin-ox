@@ -3,9 +3,9 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import type { RFIDPlugin } from './definitions';
 
 /**
- * `@capacitor-community/electron` preload'i yasaydigan ko'prik
- * (`electron-rt.ts`). `addListener` id **satrini** qaytaradi va u
- * sinxron — `removeListener` o'sha id ni oladi.
+ * The bridge built by the `@capacitor-community/electron` preload
+ * (`electron-rt.ts`). Its `addListener` returns an id **string** and is
+ * synchronous — `removeListener` takes that same id.
  */
 export interface ElectronBridge {
   addListener(eventName: string, callback: (...args: any[]) => void): string;
@@ -13,29 +13,29 @@ export interface ElectronBridge {
 }
 
 /**
- * Native yo'lda Capacitor `addListener` javobini `PluginListenerHandle` ga
- * o'zi o'raydi (`addListenerNative`), lekin buni faqat `PluginHeaders` bor
- * bo'lganda qiladi. Electron'da ular yo'q, ya'ni ko'prikning xom id satri
- * UI'ga o'sha holicha yetadi va `handle.remove()` yo'q bo'lib chiqadi:
- * tinglovchi olib tashlanmaydi, oyna ikkinchi marta ochilganda skanerlash
- * boshlanmaydi.
+ * On native platforms Capacitor wraps the `addListener` result into a
+ * `PluginListenerHandle` itself (`addListenerNative`), but only when
+ * `PluginHeaders` are present. Electron has none, so the bridge's raw id
+ * string reaches the UI as-is and `handle.remove()` is missing: the listener
+ * is never removed, and scanning does not start the second time the modal
+ * opens.
  *
- * O'rash `Proxy` bilan qilinmaydi. `contextBridge` ochgan obyektning
- * metodlari `writable: false, configurable: false` bo'lib keladi, bunday
- * xossada `get` tuzog'i **aynan o'sha qiymatni** qaytarishi shart — bind
- * qilingan nusxa ham yaramaydi. Aks holda dvigatel qurilmada ko'rilgan
- * xatoni tashlaydi:
+ * Do not wrap it with a `Proxy`. Methods of an object exposed through
+ * `contextBridge` arrive as `writable: false, configurable: false`, and for
+ * such a property a `get` trap must return **that exact value** — even a
+ * bound copy is rejected. Otherwise the engine throws the error we saw on
+ * the device:
  *   TypeError: 'get' on proxy: property 'startScan' is a read-only and
  *   non-configurable data property on the proxy target but the proxy did
  *   not return its actual value
- * Shuning uchun ko'prik prototip qilib olinadi: qolgan metodlar prototipdan
- * o'z holicha topiladi, faqat `addListener` ustiga yoziladi.
+ * So the bridge is used as the prototype instead: the other methods are
+ * found on it as usual, and only `addListener` is defined on top.
  */
 export function withListenerHandles(bridge: ElectronBridge): RFIDPlugin {
   const plugin = Object.create(bridge) as RFIDPlugin;
 
-  // Oddiy `plugin.addListener = ...` ishlamaydi: prototipdagi xossa
-  // `writable: false` bo'lgani uchun [[Set]] uni to'sadi.
+  // A plain `plugin.addListener = ...` does not work: the prototype property
+  // is `writable: false`, so [[Set]] blocks it.
   Object.defineProperty(plugin, 'addListener', {
     value: async (
       eventName: string,

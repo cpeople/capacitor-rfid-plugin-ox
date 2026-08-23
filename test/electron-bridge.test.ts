@@ -1,6 +1,6 @@
-// Ko'prik `contextBridge` ochgan obyekt ustida ishlashi kerak. Uning
-// metodlari `writable: false, configurable: false` bo'lib keladi — soxta
-// nusxa ham aynan shunday yasaladi, chunki muammo faqat shu holatda chiqadi.
+// The bridge has to work on an object exposed through `contextBridge`. Its
+// methods arrive as `writable: false, configurable: false`, so the fake is
+// built the same way — the bug only shows up in that shape.
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -51,9 +51,8 @@ describe('withListenerHandles', () => {
 
     const plugin = withListenerHandles(bridge) as any;
 
-    // Proxy bilan bu qator TypeError tashlardi: read-only va
-    // non-configurable xossada get tuzog'i aynan o'sha qiymatni
-    // qaytarishi shart.
+    // With a Proxy this line threw a TypeError: for a read-only,
+    // non-configurable property the get trap must return that exact value.
     expect(plugin.startScan).toBe(startScan);
     expect(plugin.setOutputPower).toBe(setOutputPower);
   });
@@ -75,7 +74,7 @@ describe('withListenerHandles', () => {
   it("qo'llanmaydigan metod undefined bo'lib qoladi", () => {
     const { bridge } = fakeBridge();
 
-    // Capacitor buni UNIMPLEMENTED bilan rad etadi, jim resolve qilmaydi.
+    // Capacitor rejects this with UNIMPLEMENTED instead of resolving silently.
     expect((withListenerHandles(bridge) as any).writeEpc).toBeUndefined();
   });
 
