@@ -1,6 +1,6 @@
 {
   "name": "capacitor-rfid-plugin-ox",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "rfid read-write",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
