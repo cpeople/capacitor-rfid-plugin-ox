@@ -1,4 +1,4 @@
-import type { Plugin } from '@capacitor/core';
+import type { Plugin, PluginListenerHandle } from '@capacitor/core';
 
 /**
  * What the connected Reader can do. Mode gating comes from here, not from the
@@ -20,6 +20,47 @@ export interface ReaderCapabilities {
   };
 }
 
+/**
+ * The four states an operator can act on.
+ *
+ * `isConnected()` is too coarse for this: a reader that is plugged in but
+ * silent answers `false` the same way a missing one does, and the operator
+ * needs a different move in each case. `isConnected()` stays as it is.
+ */
+export type ReaderConnectionStatus =
+  /** An attempt is running. */
+  | 'connecting'
+  /** The reader is open and answering. */
+  | 'connected'
+  /** No reader to talk to — nothing found, or found but not openable. */
+  | 'not-found'
+  /** The port opened but the reader did not answer a command. */
+  | 'not-responding';
+
+/**
+ * Why the reader is unusable. The status alone does not say what to do next:
+ * a busy port needs another program closed, a missing port needs the cable
+ * checked. The UI picks its message from the reason when there is one.
+ */
+export type ReaderConnectionReason =
+  /** The port exists but another program holds it open. A COM port is exclusive. */
+  | 'port-busy'
+  /** No serial port at all — the USB device is not enumerated. */
+  | 'no-ports'
+  /** Serial ports exist, none of them is a reader. */
+  | 'no-reader-port'
+  /** The port was open and then went away. */
+  | 'unplugged'
+  /** The port opened but the reader stayed silent. */
+  | 'no-answer';
+
+export interface ReaderConnectionState {
+  status: ReaderConnectionStatus;
+  reason?: ReaderConnectionReason;
+  /** Driver text for logs — port list, command code. Not shown to the operator. */
+  detail?: string;
+}
+
 export interface RFIDPlugin extends Plugin {
   /**
    * Capabilities of the connected Reader.
@@ -28,6 +69,20 @@ export interface RFIDPlugin extends Plugin {
    * failure: the caller treats a rejection as a handheld Mobile Reader.
    */
   getCapabilities(): Promise<ReaderCapabilities>;
+
+  /**
+   * Connection state for the first render. The stream of later changes comes
+   * from the `onConnectionState` listener — "not responding" is only found out
+   * after a timeout, so it cannot be a return value.
+   *
+   * A serial port is exclusive, so its state is only knowable while it is
+   * open: an implementation that has no live port may start an attempt here
+   * and answer `connecting`, with the outcome arriving on the listener.
+   *
+   * Implementations that predate this method reject. The caller then hides the
+   * indicator instead of guessing.
+   */
+  getConnectionState(): Promise<ReaderConnectionState>;
 
   isConnected(): Promise<{ connected: boolean }>;
 
@@ -65,4 +120,15 @@ export interface RFIDPlugin extends Plugin {
 
   startSearch(options: { searchableTags: string[], playSound: boolean }): Promise<void>;
   stopSearch(): Promise<void>;
+
+  /** Every connection state change. Fires only on a change, not on a poll. */
+  addListener(
+    eventName: 'onConnectionState',
+    listener: (state: ReaderConnectionState) => void,
+  ): Promise<PluginListenerHandle>;
+
+  addListener(
+    eventName: string,
+    listenerFunc: (...args: any[]) => any,
+  ): Promise<PluginListenerHandle>;
 }

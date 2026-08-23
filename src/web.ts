@@ -1,7 +1,11 @@
 import { WebPlugin } from '@capacitor/core';
 import type { PluginListenerHandle } from '@capacitor/core';
 
-import type { ReaderCapabilities, RFIDPlugin } from './definitions';
+import type {
+  ReaderCapabilities,
+  ReaderConnectionState,
+  RFIDPlugin,
+} from './definitions';
 
 const NO_READER_ON_WEB =
   'No RFID Reader in the browser. Use the desktop app (ox-desktop) or the Android handheld.';
@@ -24,6 +28,15 @@ export class RFIDWeb extends WebPlugin implements RFIDPlugin {
   }
 
   async getCapabilities(): Promise<ReaderCapabilities> {
+    throw this.unimplemented(NO_READER_ON_WEB);
+  }
+
+  /**
+   * Not `not-found`: that state tells the operator to check the cable, and
+   * there is no cable to check in a browser. The rejection carries the one
+   * useful sentence — open the desktop app or the handheld.
+   */
+  async getConnectionState(): Promise<ReaderConnectionState> {
     throw this.unimplemented(NO_READER_ON_WEB);
   }
 
