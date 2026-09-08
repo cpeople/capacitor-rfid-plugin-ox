@@ -2,15 +2,10 @@
     <application
         android:name="uz.ox.plugins.rfid.BaseApplication"
         android:allowBackup="true">
-        <activity
-            android:name="uz.ox.plugins.rfid.MainActivity"
-            android:exported="true"
-            >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <!-- Библиотечный модуль НЕ должен объявлять свою LAUNCHER-активити:
+             у приложения появлялись две точки входа, и система запускала
+             uz.ox.plugins.rfid.MainActivity вместо uz.ox.app.MainActivity
+             (без FirebaseAvailabilityPlugin). RFIDPlugin регистрируется
+             Capacitor'ом автоматически по capacitor.plugins.json. -->
     </application>
 </manifest>
